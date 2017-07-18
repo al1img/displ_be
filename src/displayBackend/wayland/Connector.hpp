@@ -32,6 +32,7 @@
 #include "IviSurface.hpp"
 #endif
 #include "ShellSurface.hpp"
+#include "XdgSurface.hpp"
 
 namespace Wayland {
 
@@ -96,6 +97,7 @@ private:
 	friend class Display;
 	friend class ShellConnector;
 	friend class IviConnector;
+	friend class XdgConnector;
 
 	Connector(const std::string& name, SurfacePtr surface);
 
@@ -120,6 +122,23 @@ private:
 		mShellSurface(shellSurface) {}
 
 	ShellSurfacePtr mShellSurface;
+};
+
+/***************************************************************************//**
+ * XDG connector
+ * @ingroup wayland
+ ******************************************************************************/
+class XdgConnector : public Connector
+{
+private:
+
+	friend class Display;
+
+	XdgConnector(const std::string& name, XdgSurfacePtr xdgSurface) :
+		Connector(name, xdgSurface->getSurface()),
+		mXdgSurface(xdgSurface) {}
+
+	XdgSurfacePtr mXdgSurface;
 };
 
 #ifdef WITH_IVI_EXTENSION

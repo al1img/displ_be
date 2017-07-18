@@ -103,7 +103,14 @@ DisplayItf::ConnectorPtr Display::createConnector(const string& name,
 {
 	Connector* connector = nullptr;
 
-	if (mShell)
+	if (mXdgShell)
+	{
+		connector = new XdgConnector(name, mXdgShell->createXdgSurface(
+									 mCompositor->createSurface()));
+
+		LOG(mLog, DEBUG) << "Create XDG connector, name: " << name;
+	}
+	else if (mShell)
 	{
 		connector = new ShellConnector(name, createShellSurface(x, y));
 
@@ -294,6 +301,11 @@ void Display::registryHandler(wl_registry *registry, uint32_t id,
 	if (interface == "wl_shell")
 	{
 		mShell.reset(new Shell(registry, id, version));
+	}
+
+	if (interface == "xdg_shell")
+	{
+		mXdgShell.reset(new XdgShell(registry, id, version));
 	}
 
 	if (interface == "wl_shm")

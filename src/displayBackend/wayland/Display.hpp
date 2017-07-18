@@ -43,6 +43,7 @@
 #ifdef WITH_DRM
 #include "WaylandDrm.hpp"
 #endif
+#include "XdgShell.hpp"
 
 namespace Wayland {
 
@@ -157,6 +158,7 @@ private:
 
 	CompositorPtr mCompositor;
 	ShellPtr mShell;
+	XdgShellPtr mXdgShell;
 	SharedMemoryPtr mSharedMemory;
 
 #ifdef WITH_IVI_EXTENSION

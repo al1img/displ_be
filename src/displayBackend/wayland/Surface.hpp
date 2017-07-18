@@ -45,6 +45,7 @@ private:
 	friend class IviSurface;
 	template <typename T> friend class SeatDevice;
 	friend class ShellSurface;
+	friend class XdgSurface;
 	friend class Compositor;
 
 	Surface(wl_display* display, wl_compositor* compositor);
