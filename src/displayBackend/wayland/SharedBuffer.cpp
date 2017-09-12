@@ -59,6 +59,15 @@ SharedBuffer::~SharedBuffer()
 /*******************************************************************************
  * Private
  ******************************************************************************/
+void SharedBuffer::sBufferRelease(void *data, struct wl_buffer *wl_buffer)
+{
+	static_cast<SharedBuffer*>(data)->bufferRelease();
+}
+
+void SharedBuffer::bufferRelease()
+{
+	LOG(mLog, DEBUG) << "Buffer released";
+}
 
 uint32_t SharedBuffer::convertPixelFormat(uint32_t format)
 {
@@ -97,6 +106,10 @@ void SharedBuffer::init(wl_shm* wlSharedMemory, uint32_t pixelFormat)
 	wl_shm_pool_destroy(mWlPool);
 
 	mWlPool = nullptr;
+
+	mWlBufferListener = { sBufferRelease };
+
+	wl_buffer_add_listener(mWlBuffer, &mWlBufferListener, this);
 
 	LOG(mLog, DEBUG) << "Create, w: " << mWidth << ", h: " << mHeight
 					 << ", stride: " << mDisplayBuffer->getStride()

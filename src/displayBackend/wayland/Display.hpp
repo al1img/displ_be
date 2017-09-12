@@ -42,6 +42,9 @@
 #ifdef WITH_DRM
 #include "WaylandDrm.hpp"
 #endif
+#ifdef WITH_XDG_SHELL
+#include "XdgShell.hpp"
+#endif
 
 namespace Wayland {
 
@@ -151,6 +154,10 @@ private:
 
 #ifdef WITH_DRM
 	WaylandDrmPtr mWaylandDrm;
+#endif
+
+#ifdef WITH_XDG_SHELL
+	XdgShellPtr mXdgShell;
 #endif
 
 	std::thread mThread;

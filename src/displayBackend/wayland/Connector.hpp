@@ -33,6 +33,10 @@
 #endif
 #include "Shell.hpp"
 #include "ShellSurface.hpp"
+#ifdef WITH_XDG_SHELL
+#include "XdgShell.hpp"
+#include "XdgSurface.hpp"
+#endif
 
 namespace Wayland {
 
@@ -95,6 +99,7 @@ private:
 	friend class Display;
 	friend class ShellConnector;
 	friend class IviConnector;
+	friend class XdgConnector;
 
 	Connector(const std::string& name, SurfacePtr surface);
 
@@ -193,6 +198,54 @@ private:
 
 	IviApplicationPtr mIviApplication;
 	IviSurfacePtr mIviSurface;
+};
+#endif
+
+#ifdef WITH_XDG_SHELL
+/***************************************************************************//**
+ * XDG connector
+ * @ingroup wayland
+ ******************************************************************************/
+class XdgConnector : public Connector
+{
+public:
+	/**
+	 * Initializes connector
+	 * @param width       width
+	 * @param height      height
+	 * @param frameBuffer frame buffer
+	 */
+	void init(uint32_t width, uint32_t height,
+			  DisplayItf::FrameBufferPtr frameBuffer) override
+	{
+		mXdgSurface = mXdgShell->createXdgSurface(getSurface());
+
+		usleep(1000000);
+
+		Connector::init(width, height, frameBuffer);
+	}
+
+	/**
+	 * Releases initialized connector
+	 */
+	void release() override
+	{
+		Connector::release();
+
+		mXdgSurface.reset();
+	}
+
+private:
+
+	friend class Display;
+
+	XdgConnector(const std::string& name, XdgShellPtr xdgShell,
+				 SurfacePtr surface) :
+		Connector(name, surface),
+		mXdgShell(xdgShell) {}
+
+	XdgShellPtr mXdgShell;
+	XdgSurfacePtr mXdgSurface;
 };
 #endif
 

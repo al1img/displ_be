@@ -68,6 +68,12 @@ private:
 	uint32_t mHeight;
 	XenBackend::Log mLog;
 
+	wl_buffer_listener mWlBufferListener;
+
+	static void sBufferRelease(void *data, struct wl_buffer *wl_buffer);
+
+	void bufferRelease();
+
 	uint32_t convertPixelFormat(uint32_t format);
 	void init(wl_shm* wlSharedMemory, uint32_t pixelFormat);
 	void release();

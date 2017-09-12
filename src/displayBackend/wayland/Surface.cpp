@@ -65,7 +65,7 @@ void Surface::draw(FrameBufferPtr frameBuffer,
 			throw Exception("Can't get frame callback");
 		}
 
-		if (wl_callback_add_listener(mWlFrameCallback, &mWlFrameListener, this) < 0)
+		if (wl_callback_add_listener(mWlFrameCallback, &mWlFrameListener, this))
 		{
 			throw Exception("Can't add listener");
 		}
@@ -78,17 +78,7 @@ void Surface::draw(FrameBufferPtr frameBuffer,
 					  reinterpret_cast<wl_buffer*>(frameBuffer->getHandle()),
 					  0, 0);
 
-	wl_surface_commit(mWlSurface);
-
-	if (wl_display_dispatch_pending(mWlDisplay) == -1)
-	{
-		throw Exception("Failed to dispatch pending events");
-	}
-
-	if (wl_display_flush(mWlDisplay) == -1)
-	{
-		throw Exception("Failed to flush display");
-	}
+	commit();
 }
 
 /*******************************************************************************
@@ -111,6 +101,21 @@ void Surface::frameHandler()
 	if (mStoredCallback)
 	{
 		mStoredCallback();
+	}
+}
+
+void Surface::commit()
+{
+	wl_surface_commit(mWlSurface);
+
+	if (wl_display_dispatch_pending(mWlDisplay) == -1)
+	{
+		throw Exception("Failed to dispatch pending events");
+	}
+
+	if (wl_display_flush(mWlDisplay) == -1)
+	{
+		throw Exception("Failed to flush display");
 	}
 }
 

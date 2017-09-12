@@ -4,6 +4,7 @@ set(SOURCES
 	Compositor.cpp
 	Connector.cpp
 	Display.cpp
+	FrameBuffer.cpp
 	SharedBuffer.cpp
 	SharedFile.cpp
 	SharedMemory.cpp
@@ -16,6 +17,15 @@ if(WITH_DRM)
 	list(APPEND SOURCES
 		DrmBuffer.cpp
 		WaylandDrm.cpp
+	)
+endif()
+
+if(WITH_XDG_SHELL)
+	add_definitions(-DWITH_XDG_SHELL)
+
+	list(APPEND SOURCES
+		XdgShell.cpp
+		XdgSurface.cpp
 	)
 endif()
 
@@ -41,7 +51,11 @@ if(WITH_DRM)
 	target_link_libraries(display_wayland wayland_drm_protocol)
 endif()
 
-target_link_libraries(display_wayland ${WAYLAND_LIBRARIES})
+if(WITH_XDG_SHELL)
+	target_link_libraries(display_wayland xdg-shell-unstable-v6)
+endif()
+
+target_link_libraries(display_wayland ${WAYLAND_LIBRARIES} ${XDG_PROTOCOL_NAME})
 
 if(WITH_IVI_EXTENSION)
 	target_link_libraries(display_wayland

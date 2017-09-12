@@ -74,6 +74,26 @@ DisplayItf::ConnectorPtr Display::createConnector(const string& name)
 {
 	Connector* connector = nullptr;
 
+#ifdef WITH_IVI_EXTENSION
+	if (mIviApplication)
+	{
+		connector = new IviConnector(name, mIviApplication,
+									 mCompositor->createSurface());
+
+		LOG(mLog, DEBUG) << "Create ivi connector, name: " << name;
+	}
+	else
+#endif
+#ifdef WITH_XDG_SHELL
+	if (mXdgShell)
+	{
+		connector = new XdgConnector(name, mXdgShell,
+									 mCompositor->createSurface());
+
+		LOG(mLog, DEBUG) << "Create XDG connector, name: " << name;
+	}
+	else
+#endif
 	if (mShell)
 	{
 		connector = new ShellConnector(name, mShell,
@@ -81,15 +101,6 @@ DisplayItf::ConnectorPtr Display::createConnector(const string& name)
 
 		LOG(mLog, DEBUG) << "Create shell connector, name: " << name;
 	}
-#ifdef WITH_IVI_EXTENSION
-	else if (mIviApplication)
-	{
-		connector = new IviConnector(name, mIviApplication,
-									 mCompositor->createSurface());
-
-		LOG(mLog, DEBUG) << "Create ivi connector, name: " << name;
-	}
-#endif
 	else
 	{
 		connector = new Connector(name, mCompositor->createSurface());
@@ -254,6 +265,12 @@ void Display::registryHandler(wl_registry *registry, uint32_t id,
 	if (interface == "wl_drm")
 	{
 		mWaylandDrm.reset(new WaylandDrm(registry, id, version));
+	}
+#endif
+#ifdef WITH_XDG_SHELL
+	if (interface == "zxdg_shell_v6")
+	{
+		mXdgShell.reset(new XdgShell(registry, id, version));
 	}
 #endif
 }

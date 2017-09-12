@@ -78,7 +78,7 @@ if(WITH_INPUT)
 endif()
 
 set(SOURCES
-	main.cpp
+	test.cpp
 	Config.cpp
 )
 

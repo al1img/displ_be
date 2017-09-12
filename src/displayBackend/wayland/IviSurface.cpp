@@ -8,7 +8,6 @@
 #include "IviSurface.hpp"
 
 #include <drm_fourcc.h>
-#include <ilm/ilm_client.h>
 
 #include "Exception.hpp"
 
@@ -51,7 +50,7 @@ IviSurface::~IviSurface()
 
 void IviSurface::init(ivi_application* iviApplication)
 {
-	static t_ilm_surface sSurfaceId = 1000;
+	static uint32_t sSurfaceId = 1000;
 
 	mIlmSurfaceId = sSurfaceId++;
 

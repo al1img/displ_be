@@ -45,6 +45,7 @@ private:
 	friend class IviSurface;
 	template <typename T> friend class SeatDevice;
 	friend class ShellSurface;
+	friend class XdgSurface;
 	friend class Compositor;
 
 	Surface(wl_display* display, wl_compositor* compositor);
@@ -61,6 +62,8 @@ private:
 	static void sFrameHandler(void *data, wl_callback *wl_callback,
 							  uint32_t callback_data);
 	void frameHandler();
+
+	void commit();
 
 	void init(wl_compositor* compositor);
 	void release();
