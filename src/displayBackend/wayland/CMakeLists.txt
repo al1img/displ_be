@@ -44,7 +44,7 @@ if(WITH_ZCOPY)
 	)
 endif()
 
-target_link_libraries(display_wayland ${WAYLAND_LIBRARIES})
+target_link_libraries(display_wayland ${WAYLAND_LIBRARIES} ${WAYLAND_EGL_LIBRARIES} ${EGL_LIBRARIES})
 
 if(WITH_IVI_EXTENSION)
 	target_link_libraries(display_wayland

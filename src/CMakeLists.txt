@@ -17,6 +17,10 @@ if(WITH_IVI_EXTENSION AND WITH_WAYLAND)
 	endif()
 endif()
 
+pkg_check_modules(WAYLAND_EGL wayland-egl REQUIRED)
+
+pkg_check_modules(EGL egl REQUIRED)
+
 ################################################################################
 # Includes
 ################################################################################
@@ -51,7 +55,7 @@ if(WITH_INPUT)
 endif()
 
 set(SOURCES
-	main.cpp
+	test.cpp
 )
 
 if(WITH_MOCKBELIB)
@@ -92,5 +96,6 @@ endif()
 
 target_link_libraries(${PROJECT_NAME}
 	${XENBE_LIB}
+#	homescreen
 	pthread
 )

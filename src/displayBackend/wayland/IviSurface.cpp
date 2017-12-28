@@ -48,6 +48,17 @@ IviSurface::~IviSurface()
 /*******************************************************************************
  * Private
  ******************************************************************************/
+void IviSurface::sOnConfigure(void *data, ivi_surface *ivi_surface,
+							  int32_t width, int32_t height)
+{
+	static_cast<IviSurface*>(data)->onConfigure(width, height);
+}
+
+void IviSurface::onConfigure(int32_t width, int32_t height)
+{
+	LOG(mLog, DEBUG) << "On configure, width: " << width
+					 << ", height: " << height;
+}
 
 void IviSurface::init(ivi_application* iviApplication)
 {
@@ -58,6 +69,13 @@ void IviSurface::init(ivi_application* iviApplication)
 	if (!mWlIviSurface)
 	{
 		throw Exception("Can't create IVI surface", errno);
+	}
+
+	mWlListener = {sOnConfigure};
+
+	if (ivi_surface_add_listener(mWlIviSurface, &mWlListener, this) < 0)
+	{
+		throw Exception("Can't add listener", errno);
 	}
 
 	LOG(mLog, DEBUG) << "Create, surface id: " << mIlmSurfaceId;

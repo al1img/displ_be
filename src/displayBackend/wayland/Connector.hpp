@@ -24,6 +24,10 @@
 
 #include <atomic>
 
+#include <EGL/egl.h>
+
+#include <wayland-egl-core.h>
+
 #include <xen/be/Log.hpp>
 
 #include "Compositor.hpp"
@@ -90,7 +94,8 @@ protected:
 
 	CompositorPtr mCompositor;
 
-	void onInit(SurfacePtr surface, DisplayItf::FrameBufferPtr frameBuffer);
+	void onInit(SurfacePtr surface, DisplayItf::FrameBufferPtr frameBuffer,
+				uint32_t width, uint32_t height);
 	void onRelease();
 
 private:
@@ -99,12 +104,21 @@ private:
 	friend class ShellConnector;
 	friend class IviConnector;
 
-	Connector(const std::string& name, CompositorPtr compositor);
+	Connector(const std::string& name, CompositorPtr compositor, wl_display *wlDisplay);
 
 	std::string mName;
+	wl_display* mWlDisplay;
 	XenBackend::Log mLog;
 
 	SurfacePtr mSurface;
+
+	wl_egl_window *mWlEglWindow;
+	EGLDisplay mEglDisplay;
+	EGLConfig mEglConfig;
+	EGLSurface mEglSurface;
+	EGLContext mEglContext;
+
+	void createPlatformSurface(uint32_t width, uint32_t height);
 };
 
 /***************************************************************************//**
@@ -130,7 +144,7 @@ public:
 			mShellSurface->setTopLevel();
 		}
 
-		onInit(mShellSurface->getSurface(), frameBuffer);
+		onInit(mShellSurface->getSurface(), frameBuffer, width, height);
 	}
 
 	/**
@@ -148,8 +162,8 @@ private:
 	friend class Display;
 
 	ShellConnector(const std::string& name, ShellPtr shell,
-				   CompositorPtr compositor) :
-		Connector(name, compositor),
+				   CompositorPtr compositor, wl_display *wlDisplay) :
+		Connector(name, compositor, wlDisplay),
 		mShell(shell) {}
 
 	ShellPtr mShell;
@@ -179,7 +193,7 @@ public:
 					mCompositor->createSurface(), mSurfaceId);
 		}
 
-		onInit(mIviSurface->getSurface(), frameBuffer);
+		onInit(mIviSurface->getSurface(), frameBuffer, width, height);
 	}
 
 	/**
@@ -195,8 +209,8 @@ private:
 	friend class Display;
 
 	IviConnector(const std::string& name, IviApplicationPtr iviApplication,
-				 CompositorPtr compositor, uint32_t surfaceId) :
-		Connector(name, compositor),
+				 CompositorPtr compositor, uint32_t surfaceId, wl_display *wlDisplay) :
+		Connector(name, compositor, wlDisplay),
 		mIviApplication(iviApplication),
 		mSurfaceId(surfaceId) {}
 

@@ -46,9 +46,14 @@ private:
 	IviSurface(ivi_application* iviApplication, SurfacePtr surface,
 			   uint32_t surfaceId);
 
+	static void sOnConfigure(void *data, ivi_surface *ivi_surface,
+							 int32_t width, int32_t height);
+	void onConfigure(int32_t width, int32_t height);
+
 	ivi_surface* mWlIviSurface;
 	uint32_t mIlmSurfaceId;
 	SurfacePtr mSurface;
+	ivi_surface_listener mWlListener;
 
 	XenBackend::Log mLog;
 

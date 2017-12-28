@@ -47,6 +47,7 @@ private:
 	friend class ShellSurface;
 	friend class Compositor;
 	friend class Connector;
+	friend class IviConnector;
 
 	Surface(wl_compositor* compositor);
 

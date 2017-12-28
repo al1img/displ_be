@@ -122,7 +122,7 @@ DisplayItf::ConnectorPtr Display::createConnector(const string& name)
 
 	if (mShell)
 	{
-		connector = new ShellConnector(name, mShell, mCompositor);
+		connector = new ShellConnector(name, mShell, mCompositor, mWlDisplay);
 
 		LOG(mLog, DEBUG) << "Create shell connector, name: " << name;
 	}
@@ -141,14 +141,14 @@ DisplayItf::ConnectorPtr Display::createConnector(const string& name)
 		}
 
 		connector = new IviConnector(name, mIviApplication, mCompositor,
-									 surfaceId);
+									 surfaceId, mWlDisplay);
 
 		LOG(mLog, DEBUG) << "Create ivi connector, name: " << name;
 	}
 #endif
 	else
 	{
-		connector = new Connector(name, mCompositor);
+		connector = new Connector(name, mCompositor, mWlDisplay);
 
 		LOG(mLog, DEBUG) << "Create connector, name: " << name;
 	}

@@ -8,6 +8,8 @@
 #include "wayland/Display.hpp"
 #include "input/WlInput.hpp"
 
+//#include <libhomescreen.hpp>
+
 using XenBackend::Log;
 /*******************************************************************************
  *
@@ -93,17 +95,25 @@ int main(int argc, char *argv[])
 			(reinterpret_cast<uint32_t*>(db1->getBuffer()))[i] = 0xFFAACC;
 		}
 
-		memset(db1->getBuffer(), db1->getSize(), 0x11);
 		memset(db2->getBuffer(), db2->getSize(), 0xAA);
 
 		con1->init(800, 600, fb1);
-		con2->init(300, 200, fb2);
+//		con2->init(300, 200, fb2);
 
 		display->flush();
 
 		WlTouch touch(display, "1000");
 		touch.setCallbacks({touchDown, touchUp, touchMotion, touchFrame});
+/*
+		LibHomeScreen libHomeScreen;
 
+		if (!libHomeScreen.renderAppToAreaAllowed(0, 1))
+		{
+			throw XenBackend::Exception("Render is not allowed", EINVAL);
+		}
+
+		libHomeScreen.renderSurfaceToArea(1000, 1);
+*/
 		waitSignals();
 
 		display->stop();
