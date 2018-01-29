@@ -8,12 +8,12 @@ project(${PROJECT_NAME})
 # Options
 ################################################################################
 
+OPTION(WITH_TEST "build with test" OFF)
 OPTION(WITH_DRM "build with DRM backend" ON)
 OPTION(WITH_ZCOPY "build with zero copy support" ON)
 OPTION(WITH_WAYLAND "build with wayland backend" ON)
 OPTION(WITH_IVI_EXTENSION "build with wayland IVI Extension" ON)
 OPTION(WITH_INPUT "build with input backend" ON)
-OPTION(WITH_MOCKBELIB "build with mock backend lib" OFF)
 OPTION(WITH_DOC "build with documenation" OFF)
 
 message(STATUS)
@@ -21,14 +21,15 @@ message(STATUS "${PROJECT_NAME} Configuration:")
 message(STATUS "CMAKE_BUILD_TYPE              = ${CMAKE_BUILD_TYPE}")
 message(STATUS "CMAKE_INSTALL_PREFIX          = ${CMAKE_INSTALL_PREFIX}")
 message(STATUS)
-message(STATUS "WITH_DOC                      = ${WITH_DOC}")
 message(STATUS "WITH_DRM                      = ${WITH_DRM}")
 message(STATUS "WITH_ZCOPY                    = ${WITH_ZCOPY}")
 message(STATUS "WITH_WAYLAND                  = ${WITH_WAYLAND}")
 message(STATUS "WITH_IVI_EXTENSION            = ${WITH_IVI_EXTENSION}")
 message(STATUS "WITH_INPUT                    = ${WITH_INPUT}")
 message(STATUS)
-message(STATUS "WITH_MOCKBELIB                = ${WITH_MOCKBELIB}")
+message(STATUS "WITH_TEST                     = ${WITH_TEST}")
+message(STATUS)
+message(STATUS "WITH_DOC                      = ${WITH_DOC}")
 message(STATUS)
 message(STATUS "XEN_INCLUDE_PATH              = ${XEN_INCLUDE_PATH}")
 message(STATUS "XENBE_INCLUDE_PATH            = ${XENBE_INCLUDE_PATH}")
@@ -36,13 +37,13 @@ message(STATUS "IF_INCLUDE_PATH               = ${IF_INCLUDE_PATH}")
 if(WITH_ZCOPY)
 message(STATUS "DRMZCOPY_INCLUDE_PATH         = ${DRMZCOPY_INCLUDE_PATH}")
 endif()
-if(WITH_MOCKBELIB)
+if(WITH_TEST)
 message(STATUS "XENBEMOCK_INCLUDE_PATH        = ${XENBEMOCK_INCLUDE_PATH}")
 endif()
 message(STATUS)
 message(STATUS "XEN_LIB_PATH                  = ${XEN_LIB_PATH}")
 message(STATUS "XENBE_LIB_PATH                = ${XENBE_LIB_PATH}")
-if(WITH_MOCKBELIB)
+if(WITH_TEST)
 message(STATUS "XENBEMOCK_LIB_PATH            = ${XENBEMOCK_LIB_PATH}")
 endif()
 message(STATUS)
@@ -88,10 +89,6 @@ if(WITH_INPUT)
 	add_definitions(-DWITH_INPUT)
 endif()
 
-if(WITH_MOCKBELIB)
-	add_definitions(-DWITH_MOCKBELIB)
-endif()
-
 ################################################################################
 # Includes
 ################################################################################
@@ -120,6 +117,16 @@ link_directories(
 ################################################################################
 
 add_subdirectory(src)
+
+if(WITH_TEST)
+	enable_testing()
+	add_subdirectory(test)
+	if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+		set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMakeModules)
+		include(CodeCoverage)
+		setup_target_for_coverage(coverage unitTests coverage)
+	endif()
+endif()
 
 ################################################################################
 # Versioning

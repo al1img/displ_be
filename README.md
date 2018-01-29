@@ -21,13 +21,13 @@ Supported options:
 
 | Option | Description |
 | --- | --- |
-| `WITH_DOC` | Creates target to build documentation. It required Doxygen to be installed. If configured, documentation can be create with `make doc` |
 | `WITH_DRM` | Builds display backend with DRM framework (libdrm) |
 | `WITH_ZCOPY` | Enables zero copy functionality for DRM |
 | `WITH_WAYLAND` | Builds display backend with Wyaland framework (wayland-client) |
 | `WITH_IVI_EXTENSION` | Uses GENIVI IVI extension to set surface positions |
 | `WITH_INPUT` | Builds input backend |
-| `WITH_MOCKBELIB` | Use test mock backend library | 
+| `WITH_TEST` | Builds unit tests | 
+| `WITH_DOC` | Creates target to build documentation. It required Doxygen to be installed. If configured, documentation can be create with `make doc` |
 
 > If `WITH_DRM` and `WITH_WAYLAND` are disabled no display backend will be built.
 
