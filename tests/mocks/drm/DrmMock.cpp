@@ -10,11 +10,12 @@
 
 #include "drm/xen_zcopy_drm.h"
 
+using std::find_if;
+using std::make_shared;
 using std::pair;
+using std::shared_ptr;
 using std::string;
 using std::unordered_map;
-using std::shared_ptr;
-using std::make_shared;
 
 unordered_map<int, shared_ptr<DrmMock>> gDrmMap;
 
@@ -48,12 +49,16 @@ int __wrap_open(const char *__file, int __oflag, ...)
 	return __real_open(__file, __oflag);
 }
 
+void *__wrap_mmap(void *__addr, size_t __len, int __prot,
+				  int __flags, int __fd, __off_t __offset)
+{
+	return 0;
+}
+
 }
 
 int drmOpen(const char *name, const char *busid)
 {
-	static int fd = 1;
-
 	auto it = find_if(gDrmMap.begin(), gDrmMap.end(),
 					  [&name](const pair<int, shared_ptr<DrmMock>>& value)
 					  { return name == value.second->getName(); });
@@ -65,16 +70,20 @@ int drmOpen(const char *name, const char *busid)
 		return -1;
 	}
 
+	shared_ptr<DrmMock> drmMock;
+
 	if (strcmp(name, XENDRM_ZCOPY_DRIVER_NAME) == 0)
 	{
-		gDrmMap[fd] = shared_ptr<DrmMock>(new DrmZCopyMock(name, fd));
+		drmMock.reset(new DrmZCopyMock(name));
 	}
 	else
 	{
-		gDrmMap[fd] = shared_ptr<DrmMock>(new DrmMock(name, fd));
+		drmMock.reset(new DrmMock(name));
 	}
 
-	return fd++;
+	gDrmMap[drmMock->getFd()] = drmMock;
+
+	return drmMock->getFd();
 }
 
 int drmClose(int fd)
@@ -160,12 +169,21 @@ void drmModeFreeResources(drmModeResPtr ptr)
 
 drmModeConnectorPtr drmModeGetConnector(int fd, uint32_t connectorId)
 {
-	return nullptr;
+	auto it = gDrmMap.find(fd);
+
+	if (it == gDrmMap.end())
+	{
+		errno = ENOENT;
+
+		return nullptr;
+	}
+
+	return it->second->getModeConnector(connectorId);
 }
 
 void drmModeFreeConnector(drmModeConnectorPtr ptr)
 {
-
+	free(ptr);
 }
 
 drmModeEncoderPtr drmModeGetEncoder(int fd, uint32_t encoder_id)
@@ -205,8 +223,23 @@ int drmModePageFlip(int fd, uint32_t crtc_id, uint32_t fb_id,
  * DrmMock
  ******************************************************************************/
 
-DrmMock::DrmMock(const string& name, int fd) : mName(name), mFd(fd)
+DrmMock::DrmMock(const string& name) :
+	mName(name),
+	mMagic(0),
+	mConnectorIds({1, 2})
 {
+	int count = 0;
+
+	for(auto id : mConnectorIds)
+	{
+		drmModeConnector connector {};
+
+		connector.connector_id = id;
+		connector.connector_type = DRM_MODE_CONNECTOR_HDMIA;
+		connector.connector_type_id = count++;
+
+		mConnectors.push_back(connector);
+	}
 }
 
 DrmMock::~DrmMock()
@@ -220,9 +253,30 @@ DrmMock::~DrmMock()
 
 drmModeResPtr DrmMock::getModeResources()
 {
-	drmModeResPtr res = static_cast<drmModeResPtr>(malloc(sizeof(drmModeRes)));
+	auto res = static_cast<drmModeResPtr>(malloc(sizeof(drmModeRes)));
 
 	memset(res, 0, sizeof(drmModeRes));
+
+	res->count_connectors = mConnectorIds.size();
+	res->connectors = mConnectorIds.data();
+
+	return res;
+}
+
+drmModeConnectorPtr DrmMock::getModeConnector(uint32_t connectorId)
+{
+	auto it = find_if(mConnectors.begin(), mConnectors.end(),
+					  [connectorId](const drmModeConnector& connector)
+					  { return connector.connector_id == connectorId; });
+
+	if (it == mConnectors.end())
+	{
+		return nullptr;
+	}
+
+	auto res = static_cast<drmModeConnectorPtr>(malloc(sizeof(drmModeConnector)));
+
+	*res = *it;
 
 	return res;
 }

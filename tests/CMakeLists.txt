@@ -33,7 +33,9 @@ add_executable(unit_tests ${TEST_SOURCES})
 
 if(WITH_DRM)
 	target_link_libraries(unit_tests display_drm drm_mock)
-	set_target_properties(unit_tests PROPERTIES LINK_FLAGS "-Wl,--wrap=open")
+	set_target_properties(unit_tests PROPERTIES LINK_FLAGS
+		"-Wl,--wrap=open -Wl,--wrap=mmap"
+	)
 endif()
 
 target_link_libraries(unit_tests xenbemock pthread)
