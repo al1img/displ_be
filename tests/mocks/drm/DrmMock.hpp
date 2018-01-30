@@ -24,7 +24,18 @@ public:
 	virtual drmModeResPtr getModeResources();
 	virtual drmModeConnectorPtr getModeConnector(uint32_t connectorId);
 
+	static void reset();
+
+	static void setErrorMode(bool errorMode) { sErrorMode = true; }
+	static bool getErrorMode() { return sErrorMode; }
+	static void setDisableZCopy(bool disableZCopy) { sDisableZCopy = disableZCopy; }
+	static bool getDisableZCopy() { return sDisableZCopy; }
+
 private:
+
+	static bool sErrorMode;
+	static bool sDisableZCopy;
+
 	std::string mName;
 	drm_magic_t mMagic;
 	Pipe mPipe;

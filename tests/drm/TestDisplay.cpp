@@ -1,10 +1,15 @@
 #include "catch.hpp"
+
 #include "drm/Display.hpp"
+
+#include "mocks/drm/DrmMock.hpp"
 
 using Drm::Display;
 
 TEST_CASE("DRM Display")
 {
+	DrmMock::reset();
+
 	Display display("/dev/dri/card0");
 
 	REQUIRE_NOTHROW(display.start());
@@ -64,4 +69,59 @@ TEST_CASE("DRM Display")
 	REQUIRE_NOTHROW(display.flush());
 
 	REQUIRE_NOTHROW(display.stop());
+}
+
+TEST_CASE("DRM Display without ZCopy")
+{
+	DrmMock::reset();
+	DrmMock::setDisableZCopy(true);
+
+	Display display("/dev/dri/card0");
+
+	REQUIRE_NOTHROW(display.start());
+
+	SECTION("Check buffers")
+	{
+		DisplayItf::GrantRefs refs;
+
+		CHECK_THROWS_AS(display.createDisplayBuffer(800, 600, 32, 0, refs, true),
+						Drm::Exception);
+
+		auto dumb1 = display.createDisplayBuffer(800, 600, 32, 0, refs, false);
+
+		CHECK(dumb1 != nullptr);
+	}
+
+	REQUIRE_NOTHROW(display.flush());
+
+	REQUIRE_NOTHROW(display.stop());
+}
+
+TEST_CASE("DRM Display error path")
+{
+	DrmMock::reset();
+
+	SECTION("Check second start")
+	{
+		Display display("/dev/dri/card0");
+
+		CHECK_NOTHROW(display.start());
+		CHECK_NOTHROW(display.start());
+	}
+
+	SECTION("Check second stop")
+	{
+		Display display("/dev/dri/card0");
+
+		CHECK_NOTHROW(display.stop());
+		CHECK_NOTHROW(display.stop());
+	}
+
+	SECTION("Check create error")
+	{
+		DrmMock::setErrorMode(true);
+
+		CHECK_THROWS_AS([](){ Display display("/dev/dri/card0"); }(),
+							  Drm::Exception);
+	}
 }

@@ -59,6 +59,12 @@ void *__wrap_mmap(void *__addr, size_t __len, int __prot,
 
 int drmOpen(const char *name, const char *busid)
 {
+	if (DrmMock::getErrorMode())
+	{
+		errno = EINVAL;
+		return -1;
+	}
+
 	auto it = find_if(gDrmMap.begin(), gDrmMap.end(),
 					  [&name](const pair<int, shared_ptr<DrmMock>>& value)
 					  { return name == value.second->getName(); });
@@ -66,7 +72,6 @@ int drmOpen(const char *name, const char *busid)
 	if (it != gDrmMap.end())
 	{
 		errno = EEXIST;
-
 		return -1;
 	}
 
@@ -74,6 +79,12 @@ int drmOpen(const char *name, const char *busid)
 
 	if (strcmp(name, XENDRM_ZCOPY_DRIVER_NAME) == 0)
 	{
+		if (DrmMock::getDisableZCopy())
+		{
+			errno = ENOENT;
+			return -1;
+		}
+
 		drmMock.reset(new DrmZCopyMock(name));
 	}
 	else
@@ -88,12 +99,17 @@ int drmOpen(const char *name, const char *busid)
 
 int drmClose(int fd)
 {
+	if (DrmMock::getErrorMode())
+	{
+		errno = EINVAL;
+		return -1;
+	}
+
 	auto it = gDrmMap.find(fd);
 
 	if (it == gDrmMap.end())
 	{
 		errno = ENOENT;
-
 		return -1;
 	}
 
@@ -104,6 +120,12 @@ int drmClose(int fd)
 
 int drmGetMagic(int fd, drm_magic_t * magic)
 {
+	if (DrmMock::getErrorMode())
+	{
+		errno = EINVAL;
+		return -1;
+	}
+
 	auto it = gDrmMap.find(fd);
 
 	if (it == gDrmMap.end())
@@ -120,6 +142,12 @@ int drmGetMagic(int fd, drm_magic_t * magic)
 
 int drmGetCap(int fd, uint64_t capability, uint64_t *value)
 {
+	if (DrmMock::getErrorMode())
+	{
+		errno = EINVAL;
+		return -1;
+	}
+
 	*value = 1;
 
 	return 0;
@@ -127,11 +155,23 @@ int drmGetCap(int fd, uint64_t capability, uint64_t *value)
 
 int drmHandleEvent(int fd, drmEventContextPtr evctx)
 {
+	if (DrmMock::getErrorMode())
+	{
+		errno = EINVAL;
+		return -1;
+	}
+
 	return 0;
 }
 
 int drmIoctl(int fd, unsigned long request, void *arg)
 {
+	if (DrmMock::getErrorMode())
+	{
+		errno = EINVAL;
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -140,16 +180,34 @@ int drmModeAddFB2(int fd, uint32_t width, uint32_t height,
 				  uint32_t pitches[4], uint32_t offsets[4],
 				  uint32_t *buf_id, uint32_t flags)
 {
+	if (DrmMock::getErrorMode())
+	{
+		errno = EINVAL;
+		return -1;
+	}
+
 	return 0;
 }
 
 int drmModeRmFB(int fd, uint32_t bufferId)
 {
+	if (DrmMock::getErrorMode())
+	{
+		errno = EINVAL;
+		return -1;
+	}
+
 	return 0;
 }
 
 drmModeResPtr drmModeGetResources(int fd)
 {
+	if (DrmMock::getErrorMode())
+	{
+		errno = EINVAL;
+		return nullptr;
+	}
+
 	auto it = gDrmMap.find(fd);
 
 	if (it == gDrmMap.end())
@@ -169,6 +227,12 @@ void drmModeFreeResources(drmModeResPtr ptr)
 
 drmModeConnectorPtr drmModeGetConnector(int fd, uint32_t connectorId)
 {
+	if (DrmMock::getErrorMode())
+	{
+		errno = EINVAL;
+		return nullptr;
+	}
+
 	auto it = gDrmMap.find(fd);
 
 	if (it == gDrmMap.end())
@@ -188,6 +252,12 @@ void drmModeFreeConnector(drmModeConnectorPtr ptr)
 
 drmModeEncoderPtr drmModeGetEncoder(int fd, uint32_t encoder_id)
 {
+	if (DrmMock::getErrorMode())
+	{
+		errno = EINVAL;
+		return nullptr;
+	}
+
 	return nullptr;
 }
 
@@ -198,6 +268,12 @@ void drmModeFreeEncoder(drmModeEncoderPtr ptr)
 
 drmModeCrtcPtr drmModeGetCrtc(int fd, uint32_t crtcId)
 {
+	if (DrmMock::getErrorMode())
+	{
+		errno = EINVAL;
+		return nullptr;
+	}
+
 	return nullptr;
 }
 
@@ -205,6 +281,12 @@ int drmModeSetCrtc(int fd, uint32_t crtcId, uint32_t bufferId,
 				   uint32_t x, uint32_t y, uint32_t *connectors, int count,
 				   drmModeModeInfoPtr mode)
 {
+	if (DrmMock::getErrorMode())
+	{
+		errno = EINVAL;
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -216,7 +298,26 @@ void drmModeFreeCrtc(drmModeCrtcPtr ptr)
 int drmModePageFlip(int fd, uint32_t crtc_id, uint32_t fb_id,
 					uint32_t flags, void *user_data)
 {
+	if (DrmMock::getErrorMode())
+	{
+		errno = EINVAL;
+		return -1;
+	}
+
 	return 0;
+}
+
+/*******************************************************************************
+ * Static
+ ******************************************************************************/
+
+bool DrmMock::sErrorMode = false;
+bool DrmMock::sDisableZCopy = false;
+
+void DrmMock::reset()
+{
+	sErrorMode = false;
+	sDisableZCopy = false;
 }
 
 /*******************************************************************************
