@@ -43,13 +43,3 @@ if(WITH_ZCOPY)
 		wayland_kms_protocol
 	)
 endif()
-
-target_link_libraries(display_wayland ${WAYLAND_LIBRARIES})
-
-if(WITH_IVI_EXTENSION)
-	target_link_libraries(display_wayland
-		${IVI_APP_LIBRARIES}
-	)
-endif()
-
-target_link_libraries(display_wayland xenbe)

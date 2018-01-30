@@ -31,11 +31,17 @@ add_library(display STATIC ${SOURCES})
 ################################################################################
 
 if(WITH_WAYLAND)
-	target_link_libraries(display display_wayland)
+
+	target_link_libraries(display display_wayland ${WAYLAND_LIBRARIES})
+
+if(WITH_IVI_EXTENSION)
+	target_link_libraries(display ${IVI_APP_LIBRARIES} )
+endif()
+
 endif()
 
 if(WITH_DRM)
-	target_link_libraries(display display_drm)
+	target_link_libraries(display display_drm ${DRM_LIBRARIES})
 endif()
 
 target_include_directories(display PUBLIC . )

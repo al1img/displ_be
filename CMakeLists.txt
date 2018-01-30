@@ -124,7 +124,7 @@ if(WITH_TEST)
 	if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
 		set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMakeModules)
 		include(CodeCoverage)
-		setup_target_for_coverage(coverage unitTests coverage)
+		setup_target_for_coverage(coverage unit_tests coverage)
 	endif()
 endif()
 

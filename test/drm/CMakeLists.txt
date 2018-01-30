@@ -1,45 +1,25 @@
-project(UnitTests)
+project(TestDrm)
 
 ################################################################################
 # Includes
 ################################################################################
 
-include_directories(
-	.
-	../src/displayBackend
-	${DRM_INCLUDE_DIRS}
-)
+include_directories( . )
 
 ################################################################################
 # Sources
 ################################################################################
 
-add_subdirectory(mocks)
-
-set(TEST_SOURCES
-	UnitTests.cpp
+set(TEST_DRM_SOURCES
+	TestDisplay.cpp
 )
-
-if(WITH_DRM)
-	add_subdirectory(drm)
-	list(APPEND TEST_SOURCES $<TARGET_OBJECTS:test_drm>)
-endif()
 
 ################################################################################
 # Targets
 ################################################################################
 
-add_executable(unit_tests ${TEST_SOURCES})
-
-if(WITH_DRM)
-	target_link_libraries(unit_tests display_drm drm_mock)
-	set_target_properties(unit_tests PROPERTIES LINK_FLAGS "-Wl,--wrap=open")
-endif()
-
-target_link_libraries(unit_tests xenbemock pthread)
+add_library(test_drm OBJECT ${TEST_DRM_SOURCES})
 
 ################################################################################
 # Libraries
 ################################################################################
-
-add_test(NAME Test COMMAND unit_tests)
