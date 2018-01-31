@@ -1,14 +1,15 @@
 #include "DrmMock.hpp"
 
 #include <algorithm>
-#include <memory>
 #include <unordered_map>
 
 #include <cerrno>
 #include <fcntl.h>
 #include <cstring>
 
-#include "drm/xen_zcopy_drm.h"
+#include <drm/xen_zcopy_drm.h>
+
+#include "drm/Exception.hpp"
 
 using std::find_if;
 using std::make_shared;
@@ -99,12 +100,6 @@ int drmOpen(const char *name, const char *busid)
 
 int drmClose(int fd)
 {
-	if (DrmMock::getErrorMode())
-	{
-		errno = EINVAL;
-		return -1;
-	}
-
 	auto it = gDrmMap.find(fd);
 
 	if (it == gDrmMap.end())
@@ -247,7 +242,6 @@ drmModeConnectorPtr drmModeGetConnector(int fd, uint32_t connectorId)
 
 void drmModeFreeConnector(drmModeConnectorPtr ptr)
 {
-	free(ptr);
 }
 
 drmModeEncoderPtr drmModeGetEncoder(int fd, uint32_t encoder_id)
@@ -258,12 +252,20 @@ drmModeEncoderPtr drmModeGetEncoder(int fd, uint32_t encoder_id)
 		return nullptr;
 	}
 
-	return nullptr;
+	auto it = gDrmMap.find(fd);
+
+	if (it == gDrmMap.end())
+	{
+		errno = ENOENT;
+
+		return nullptr;
+	}
+
+	return it->second->getModeEncoder(encoder_id);
 }
 
 void drmModeFreeEncoder(drmModeEncoderPtr ptr)
 {
-
 }
 
 drmModeCrtcPtr drmModeGetCrtc(int fd, uint32_t crtcId)
@@ -274,7 +276,16 @@ drmModeCrtcPtr drmModeGetCrtc(int fd, uint32_t crtcId)
 		return nullptr;
 	}
 
-	return nullptr;
+	auto it = gDrmMap.find(fd);
+
+	if (it == gDrmMap.end())
+	{
+		errno = ENOENT;
+
+		return nullptr;
+	}
+
+	return it->second->getModeCrtc(crtcId);
 }
 
 int drmModeSetCrtc(int fd, uint32_t crtcId, uint32_t bufferId,
@@ -292,7 +303,6 @@ int drmModeSetCrtc(int fd, uint32_t crtcId, uint32_t bufferId,
 
 void drmModeFreeCrtc(drmModeCrtcPtr ptr)
 {
-
 }
 
 int drmModePageFlip(int fd, uint32_t crtc_id, uint32_t fb_id,
@@ -320,6 +330,18 @@ void DrmMock::reset()
 	sDisableZCopy = false;
 }
 
+shared_ptr<DrmMock> DrmMock::getDrmMock(int fd)
+{
+	auto it = gDrmMap.find(fd);
+
+	if (it == gDrmMap.end())
+	{
+		throw Drm::Exception("Can't get DrmMock", ENOENT);
+	}
+
+	return it->second;
+}
+
 /*******************************************************************************
  * DrmMock
  ******************************************************************************/
@@ -327,9 +349,58 @@ void DrmMock::reset()
 DrmMock::DrmMock(const string& name) :
 	mName(name),
 	mMagic(0),
-	mConnectorIds({1, 2})
+	mConnectorIds({1, 2}),
+	mEncoderIds({1, 2}),
+	mCrtcIds({1, 2})
 {
+	drmModeModeInfo mode {};
+
+	mode.hdisplay = 800;
+	mode.vdisplay = 600;
+	strcpy(mode.name, "800x600");
+
+	mModes.push_back(mode);
+
+	mode.hdisplay = 1024;
+	mode.vdisplay = 768;
+	strcpy(mode.name, "1024x768");
+
+	mode.hdisplay = 1920;
+	mode.vdisplay = 1080;
+	strcpy(mode.name, "1920x1080");
+
+	mModes.push_back(mode);
+
 	int count = 0;
+
+	for(auto id : mCrtcIds)
+	{
+		drmModeCrtc crtc {};
+
+		crtc.crtc_id = id;
+
+		mCrtcs.push_back(crtc);
+
+		count++;
+	}
+
+	count = 0;
+
+	for(auto id : mEncoderIds)
+	{
+		drmModeEncoder encoder {};
+
+		encoder.encoder_id = id;
+		encoder.encoder_type = DRM_MODE_ENCODER_LVDS;
+		encoder.crtc_id = mCrtcIds[count];
+		encoder.possible_crtcs = 0x03;
+
+		mEncoders.push_back(encoder);
+
+		count++;
+	}
+
+	count = 0;
 
 	for(auto id : mConnectorIds)
 	{
@@ -337,9 +408,21 @@ DrmMock::DrmMock(const string& name) :
 
 		connector.connector_id = id;
 		connector.connector_type = DRM_MODE_CONNECTOR_HDMIA;
-		connector.connector_type_id = count++;
+
+		connector.connector_type_id = count;
+		connector.connection = DRM_MODE_CONNECTED;
+
+		connector.encoder_id = mEncoderIds[count];
+
+		connector.count_modes = mModes.size();
+		connector.modes = mModes.data();
+
+		connector.count_encoders = mEncoderIds.size();
+		connector.encoders = mEncoderIds.data();
 
 		mConnectors.push_back(connector);
+
+		count++;
 	}
 }
 
@@ -361,6 +444,12 @@ drmModeResPtr DrmMock::getModeResources()
 	res->count_connectors = mConnectorIds.size();
 	res->connectors = mConnectorIds.data();
 
+	res->count_encoders = mEncoderIds.size();
+	res->encoders = mEncoderIds.data();
+
+	res->count_crtcs = mCrtcIds.size();
+	res->crtcs = mCrtcIds.data();
+
 	return res;
 }
 
@@ -375,9 +464,76 @@ drmModeConnectorPtr DrmMock::getModeConnector(uint32_t connectorId)
 		return nullptr;
 	}
 
-	auto res = static_cast<drmModeConnectorPtr>(malloc(sizeof(drmModeConnector)));
-
-	*res = *it;
-
-	return res;
+	return &(*it);
 }
+
+drmModeEncoderPtr DrmMock::getModeEncoder(uint32_t encoderId)
+{
+	auto it = find_if(mEncoders.begin(), mEncoders.end(),
+					  [encoderId](const drmModeEncoder& encoder)
+					  { return encoder.encoder_id == encoderId; });
+
+	if (it == mEncoders.end())
+	{
+		return nullptr;
+	}
+
+	return &(*it);
+}
+
+drmModeCrtcPtr DrmMock::getModeCrtc(uint32_t crtcId)
+{
+	auto it = find_if(mCrtcs.begin(), mCrtcs.end(),
+					  [crtcId](const drmModeCrtc& crtc)
+					  { return crtc.crtc_id == crtcId; });
+
+	if (it == mCrtcs.end())
+	{
+		return nullptr;
+	}
+
+	return &(*it);
+}
+
+void DrmMock::setEncoderCrtcId(uint32_t encoderId, uint32_t crtcId)
+{
+	auto it = find_if(mEncoders.begin(), mEncoders.end(),
+					  [encoderId](const drmModeEncoder& encoder)
+					  { return encoder.encoder_id == encoderId; });
+
+	if (it == mEncoders.end())
+	{
+		throw Drm::Exception("Invalid encoder id", EINVAL);
+	}
+
+	it->crtc_id = crtcId;
+}
+
+void DrmMock::setConnectorEncoderId(uint32_t connectorId, uint32_t encoderId)
+{
+	auto it = find_if(mConnectors.begin(), mConnectors.end(),
+					  [connectorId](const drmModeConnector& connector)
+					  { return connector.connector_id == connectorId; });
+
+	if (it == mConnectors.end())
+	{
+		throw Drm::Exception("Invalid connector id", EINVAL);
+	}
+
+	it->encoder_id = encoderId;
+}
+
+void DrmMock::setConnected(uint32_t connectorId, bool isConnected)
+{
+	auto it = find_if(mConnectors.begin(), mConnectors.end(),
+					  [connectorId](const drmModeConnector& connector)
+					  { return connector.connector_id == connectorId; });
+
+	if (it == mConnectors.end())
+	{
+		throw Drm::Exception("Invalid connector id", EINVAL);
+	}
+
+	it->connection = isConnected ? DRM_MODE_CONNECTED : DRM_MODE_DISCONNECTED;
+}
+
