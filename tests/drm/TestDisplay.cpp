@@ -22,7 +22,7 @@ TEST_CASE("DRM Display")
 #ifdef WITH_ZCOPY
 	SECTION("Check ZCopy")
 	{
-		CHECK(display.isZeroCopySupported());
+		REQUIRE(display.isZeroCopySupported());
 
 		DisplayItf::GrantRefs refs;
 
@@ -64,6 +64,8 @@ TEST_CASE("DRM Display")
 		auto dumb3 = display.createDisplayBuffer(800, 600, 32, 0, refs, false);
 
 		CHECK(dumb3 != nullptr);
+
+		auto fb = display.createFrameBuffer(dumb1, 800, 600, 0);
 	}
 
 	REQUIRE_NOTHROW(display.flush());
