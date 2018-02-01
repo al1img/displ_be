@@ -27,9 +27,14 @@ public:
 	virtual drmModeEncoderPtr getModeEncoder(uint32_t encoderId);
 	virtual drmModeCrtcPtr getModeCrtc(uint32_t crtcId);
 
+	int pageFlip(uint32_t crtcId, uint32_t fbId, uint32_t flags,
+				 void* userData);
+	int handleEvent(drmEventContextPtr evctx);
+
 	virtual void setEncoderCrtcId(uint32_t encoderId, uint32_t crtcId);
 	virtual void setConnectorEncoderId(uint32_t connectorId, uint32_t encoderId);
 	virtual void setConnected(uint32_t connectorId, bool isConnected);
+
 
 	static void reset();
 
@@ -47,6 +52,8 @@ private:
 	std::string mName;
 	drm_magic_t mMagic;
 	Pipe mPipe;
+
+	void* mUserData;
 
 	std::vector<uint32_t> mConnectorIds;
 	std::vector<drmModeConnector> mConnectors;

@@ -5,7 +5,52 @@
 
 #include "mocks/drm/DrmMock.hpp"
 
+using std::chrono::milliseconds;
+using std::condition_variable;
+using std::mutex;
+using std::unique_lock;
+
 using Drm::Display;
+
+/*******************************************************************************
+ * Static variables
+ ******************************************************************************/
+
+static mutex gMutex;
+static condition_variable gCondVar;
+static bool gPageFlipped = false;
+
+/*******************************************************************************
+ * Static functions
+ ******************************************************************************/
+
+void pageFlipCbk()
+{
+	unique_lock<mutex> lock(gMutex);
+
+	gPageFlipped = true;
+
+	gCondVar.notify_one();
+}
+
+bool waitPageFlipped()
+{
+	unique_lock<mutex> lock(gMutex);
+
+	if (!gCondVar.wait_for(lock, milliseconds(1000),
+						   [] { return gPageFlipped; } ))
+	{
+		return true;
+	}
+
+	gPageFlipped = false;
+
+	return true;
+}
+
+/*******************************************************************************
+ * Test cases
+ ******************************************************************************/
 
 TEST_CASE("DRM Connector")
 {
@@ -81,7 +126,9 @@ TEST_CASE("DRM Page flip")
 
 	CHECK_NOTHROW(connector->init(800, 600, fb1));
 
-	CHECK_NOTHROW(connector->pageFlip(fb2, nullptr));
+	CHECK_NOTHROW(connector->pageFlip(fb2, pageFlipCbk));
+
+	CHECK(waitPageFlipped());
 
 	REQUIRE_NOTHROW(display.flush());
 

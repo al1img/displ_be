@@ -156,7 +156,16 @@ int drmHandleEvent(int fd, drmEventContextPtr evctx)
 		return -1;
 	}
 
-	return 0;
+	auto it = gDrmMap.find(fd);
+
+	if (it == gDrmMap.end())
+	{
+		errno = ENOENT;
+
+		return -1;
+	}
+
+	return it->second->handleEvent(evctx);
 }
 
 int drmIoctl(int fd, unsigned long request, void *arg)
@@ -314,7 +323,16 @@ int drmModePageFlip(int fd, uint32_t crtc_id, uint32_t fb_id,
 		return -1;
 	}
 
-	return 0;
+	auto it = gDrmMap.find(fd);
+
+	if (it == gDrmMap.end())
+	{
+		errno = ENOENT;
+
+		return -1;
+	}
+
+	return it->second->pageFlip(crtc_id, fb_id, flags, user_data);
 }
 
 /*******************************************************************************
@@ -349,6 +367,7 @@ shared_ptr<DrmMock> DrmMock::getDrmMock(int fd)
 DrmMock::DrmMock(const string& name) :
 	mName(name),
 	mMagic(0),
+	mUserData(nullptr),
 	mConnectorIds({1, 2}),
 	mEncoderIds({1, 2}),
 	mCrtcIds({1, 2})
@@ -493,6 +512,27 @@ drmModeCrtcPtr DrmMock::getModeCrtc(uint32_t crtcId)
 	}
 
 	return &(*it);
+}
+
+int DrmMock::pageFlip(uint32_t crtcId, uint32_t fbId, uint32_t flags,
+					  void* userData)
+{
+	mUserData = userData;
+
+	mPipe.write();
+
+	return 0;
+}
+
+int DrmMock::handleEvent(drmEventContextPtr evctx)
+{
+	static int sequence = 0;
+
+	mPipe.read();
+
+	evctx->page_flip_handler(mPipe.getFd(), sequence++, 0, 0, mUserData);
+
+	return 0;
 }
 
 void DrmMock::setEncoderCrtcId(uint32_t encoderId, uint32_t crtcId)
