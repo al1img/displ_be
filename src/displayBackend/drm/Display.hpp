@@ -55,6 +55,11 @@ public:
 	virtual ~DisplayBase();
 
 	/**
+	 * Returns fd
+	 */
+	int getFd() const { return mDrmFd; }
+
+	/**
 	 * Returns DRM magic
 	 */
 	drm_magic_t getMagic();
@@ -88,6 +93,11 @@ public:
 	 * Returns if display supports zero copy buffers
 	 */
 	bool isZeroCopySupported() const { return (mZCopyFd >= 0); }
+
+	/**
+	 * Returns zcopy fd
+	 */
+	int getZCopyFd() const { return mZCopyFd; }
 
 	/**
 	 * Creates display zero copy buffer with associated grand table buffer
