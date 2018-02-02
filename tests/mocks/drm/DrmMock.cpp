@@ -12,7 +12,10 @@
 #include "drm/Exception.hpp"
 
 using std::find_if;
+using std::list;
+using std::lock_guard;
 using std::make_shared;
+using std::mutex;
 using std::pair;
 using std::shared_ptr;
 using std::string;
@@ -50,9 +53,49 @@ int __wrap_open(const char *__file, int __oflag, ...)
 	return __real_open(__file, __oflag);
 }
 
+int __real_close (int __fd);
+
+int __wrap_close (int __fd)
+{
+#ifdef WITH_ZCOPY
+	if (DrmMock::isPrimeFdExist(__fd))
+	{
+		return DrmMock::closePrimeFd(__fd);
+	}
+#endif
+	return __real_close(__fd);
+}
+
+void *__real_mmap(void *__addr, size_t __len, int __prot,
+				  int __flags, int __fd, __off_t __offset);
+
 void *__wrap_mmap(void *__addr, size_t __len, int __prot,
 				  int __flags, int __fd, __off_t __offset)
 {
+	auto dumb = DrmMock::getMapDumb();
+
+	if (dumb)
+	{
+		dumb->map(__len);
+		return dumb->getBuffer();
+	}
+
+	return __real_mmap(__addr, __len, __prot, __flags, __fd, __offset);
+}
+
+int __wrap_munmap (void *__addr, size_t __len)
+{
+
+	auto dumb = DrmMock::getDumbByBuffer(__addr);
+
+	if (!dumb)
+	{
+		errno = ENOENT;
+		return -1;
+	}
+
+	dumb->unmap(__addr, __len);
+
 	return 0;
 }
 
@@ -80,13 +123,18 @@ int drmOpen(const char *name, const char *busid)
 
 	if (strcmp(name, XENDRM_ZCOPY_DRIVER_NAME) == 0)
 	{
+#ifdef WITH_ZCOPY
 		if (DrmMock::getDisableZCopy())
 		{
 			errno = ENOENT;
 			return -1;
 		}
 
-		drmMock.reset(new DrmZCopyMock(name));
+		drmMock.reset(new DrmMock(name));
+#else
+		errno = ENOENT;
+		return -1;
+#endif
 	}
 	else
 	{
@@ -176,7 +224,16 @@ int drmIoctl(int fd, unsigned long request, void *arg)
 		return -1;
 	}
 
-	return 0;
+	auto it = gDrmMap.find(fd);
+
+	if (it == gDrmMap.end())
+	{
+		errno = ENOENT;
+
+		return -1;
+	}
+
+	return it->second->ioCtl(request, arg);
 }
 
 int drmModeAddFB2(int fd, uint32_t width, uint32_t height,
@@ -336,11 +393,103 @@ int drmModePageFlip(int fd, uint32_t crtc_id, uint32_t fb_id,
 }
 
 /*******************************************************************************
+ * DumbMock
+ ******************************************************************************/
+
+DumbMock::DumbMock(uint64_t size) :
+	mName(0),
+	mBuffer(nullptr),
+	mDumbSize(size),
+	mMapSize(0),
+	mPrimeFd(-1)
+{
+	static uint32_t sName = -1;
+
+	mName = sName--;
+}
+
+DumbMock::~DumbMock()
+{
+	if (mBuffer)
+	{
+		free(mBuffer);
+	}
+}
+
+void DumbMock::map(uint64_t size)
+{
+	if (size > mDumbSize)
+	{
+		throw Drm::Exception("Invalid map size", EINVAL);
+	}
+
+	mBuffer = malloc(size);
+	mMapSize = size;
+}
+
+void DumbMock::unmap(void* buffer, uint64_t size)
+{
+	if (buffer != mBuffer)
+	{
+		throw Drm::Exception("Invalid buffer", ENOENT);
+	}
+
+	free(mBuffer);
+
+	mBuffer = nullptr;
+
+	if (size != mMapSize)
+	{
+		throw Drm::Exception("Invalid buffer size", EINVAL);
+	}
+
+	mMapSize = 0;
+}
+
+/*******************************************************************************
  * Static
  ******************************************************************************/
 
 bool DrmMock::sErrorMode = false;
 bool DrmMock::sDisableZCopy = false;
+int DrmMock::sDumbHandle = 1;
+
+mutex DrmMock::sMutex;
+
+shared_ptr<DumbMock> DrmMock::sMapDumb;
+unordered_map<uint32_t, shared_ptr<DumbMock>> DrmMock::sDumbs;
+
+#ifdef WITH_ZCOPY
+
+list<int> DrmMock::sPrimeFds;
+
+bool DrmMock::isPrimeFdExist(int fd)
+{
+	lock_guard<mutex> lock(sMutex);
+
+	auto it = find(sPrimeFds.begin(), sPrimeFds.end(), fd);
+
+	return (it != sPrimeFds.end());
+}
+
+int DrmMock::closePrimeFd(int fd)
+{
+	lock_guard<mutex> lock(sMutex);
+
+	auto it = find(sPrimeFds.begin(), sPrimeFds.end(), fd);
+
+	if (it == sPrimeFds.end())
+	{
+		errno = ENOENT;
+		return -1;
+	}
+
+	sPrimeFds.erase(it);
+
+	return 0;
+}
+
+#endif
 
 void DrmMock::reset()
 {
@@ -358,6 +507,54 @@ shared_ptr<DrmMock> DrmMock::getDrmMock(int fd)
 	}
 
 	return it->second;
+}
+
+shared_ptr<DumbMock> DrmMock::getMapDumb()
+{
+	lock_guard<mutex> lock(sMutex);
+
+	auto ret = sMapDumb;
+
+	sMapDumb.reset();
+
+	return ret;
+}
+
+shared_ptr<DumbMock> DrmMock::getDumbByBuffer(void* buffer)
+{
+	lock_guard<mutex> lock(sMutex);
+
+	auto it = find_if(sDumbs.begin(), sDumbs.end(),
+					  [buffer](const pair<int, shared_ptr<DumbMock>>& value)
+					  { return value.second->getBuffer() == buffer; });
+
+	if (it == sDumbs.end())
+	{
+		return nullptr;
+	}
+
+	return it->second;
+}
+
+shared_ptr<DumbMock> DrmMock::getDumbByHandle(uint32_t handle)
+{
+	lock_guard<mutex> lock(sMutex);
+
+	auto it = sDumbs.find(handle);
+
+	if (it == sDumbs.end())
+	{
+		return nullptr;
+	}
+
+	return it->second;
+}
+
+bool DrmMock::isDumbExist(uint32_t handle)
+{
+	lock_guard<mutex> lock(sMutex);
+
+	return sDumbs.find(handle) != sDumbs.end();
 }
 
 /*******************************************************************************
@@ -535,6 +732,51 @@ int DrmMock::handleEvent(drmEventContextPtr evctx)
 	return 0;
 }
 
+int DrmMock::ioCtl(unsigned long request, void* arg)
+{
+	switch(request)
+	{
+	case DRM_IOCTL_MODE_CREATE_DUMB:
+		return createDumb(static_cast<drm_mode_create_dumb*>(arg));
+
+	case DRM_IOCTL_MODE_MAP_DUMB:
+		return mapDumb(static_cast<drm_mode_map_dumb*>(arg));
+
+	case DRM_IOCTL_MODE_DESTROY_DUMB:
+		return destroyDumb(static_cast<drm_mode_destroy_dumb*>(arg));
+
+	case DRM_IOCTL_GEM_FLINK:
+		return getDumbName(static_cast<drm_gem_flink*>(arg));
+
+#ifdef WITH_ZCOPY
+
+	case DRM_IOCTL_PRIME_FD_TO_HANDLE:
+		return primeFdToHandle(static_cast<drm_prime_handle*>(arg));
+
+	case DRM_IOCTL_XEN_ZCOPY_DUMB_FROM_REFS:
+		return createDumbFromRefs(static_cast<drm_xen_zcopy_dumb_from_refs*>(arg));
+
+	case DRM_IOCTL_PRIME_HANDLE_TO_FD:
+		return primeHandleToFd(static_cast<drm_prime_handle*>(arg));
+
+	case DRM_IOCTL_GEM_CLOSE:
+		return closeGem(static_cast<drm_gem_close*>(arg));
+
+	case DRM_IOCTL_XEN_ZCOPY_DUMB_WAIT_FREE:
+		return 0;
+
+	case DRM_IOCTL_XEN_ZCOPY_DUMB_TO_REFS:
+		return 0;
+
+#endif
+
+	default:
+		errno = EIO;
+		return -1;
+	}
+	return 0;
+}
+
 void DrmMock::setEncoderCrtcId(uint32_t encoderId, uint32_t crtcId)
 {
 	auto it = find_if(mEncoders.begin(), mEncoders.end(),
@@ -577,3 +819,150 @@ void DrmMock::setConnected(uint32_t connectorId, bool isConnected)
 	it->connection = isConnected ? DRM_MODE_CONNECTED : DRM_MODE_DISCONNECTED;
 }
 
+/*******************************************************************************
+ * Private
+ ******************************************************************************/
+
+int DrmMock::createDumb(drm_mode_create_dumb *req)
+{
+	lock_guard<mutex> lock(sMutex);
+
+	req->pitch = 4 * ((req->width * req->bpp + 31) / 32);
+	req->size = req->height * req->pitch;
+	req->handle = sDumbHandle++;
+
+	sDumbs[req->handle] = make_shared<DumbMock>(req->size);
+
+	return 0;
+}
+
+int DrmMock::mapDumb(drm_mode_map_dumb* req)
+{
+	lock_guard<mutex> lock(sMutex);
+
+	auto it = sDumbs.find(req->handle);
+
+	if (it == sDumbs.end())
+	{
+		errno = ENOENT;
+		return -1;
+	}
+
+	sMapDumb = it->second;
+
+	req->offset = 0;
+
+	return 0;
+}
+
+int DrmMock::destroyDumb(drm_mode_destroy_dumb* req)
+{
+	lock_guard<mutex> lock(sMutex);
+
+	auto it = sDumbs.find(req->handle);
+
+	if (it == sDumbs.end())
+	{
+		errno = ENOENT;
+		return -1;
+	}
+
+	sDumbs.erase(it);
+
+	return 0;
+}
+
+int DrmMock::getDumbName(drm_gem_flink* req)
+{
+	lock_guard<mutex> lock(sMutex);
+
+	auto it = sDumbs.find(req->handle);
+
+	if (it == sDumbs.end())
+	{
+		errno = ENOENT;
+		return -1;
+	}
+
+	req->name = it->second->getName();
+
+	return 0;
+}
+
+int DrmMock::primeFdToHandle(drm_prime_handle* req)
+{
+	lock_guard<mutex> lock(sMutex);
+
+	auto it = find_if(sDumbs.begin(), sDumbs.end(),
+					  [req](const pair<int, shared_ptr<DumbMock>>& value)
+					  { return value.second->getPrimeFd() == req->fd; });
+
+	if (it == sDumbs.end())
+	{
+		errno = ENOENT;
+		return -1;
+	}
+
+	req->handle = it->first;
+
+	return 0;
+}
+
+#ifdef WITH_ZCOPY
+
+int DrmMock::createDumbFromRefs(drm_xen_zcopy_dumb_from_refs* req)
+{
+	lock_guard<mutex> lock(sMutex);
+
+	req->dumb.pitch = 4 * ((req->dumb.width * req->dumb.bpp + 31) / 32);
+	req->dumb.size = req->dumb.height * req->dumb.pitch;
+	req->dumb.handle = sDumbHandle++;
+
+	sDumbs[req->dumb.handle] = make_shared<DumbMock>(req->dumb.size);
+
+	req->wait_handle = sDumbHandle++;
+
+	return 0;
+}
+
+int DrmMock::primeHandleToFd(drm_prime_handle* req)
+{
+	lock_guard<mutex> lock(sMutex);
+
+	static int sPrimeFd = 65536;
+
+	auto it = sDumbs.find(req->handle);
+
+	if (it == sDumbs.end())
+	{
+		errno = ENOENT;
+		return -1;
+	}
+
+	it->second->setPrimeFd(sPrimeFd++);
+
+	req->fd = it->second->getPrimeFd();
+
+	sPrimeFds.push_back(req->fd);
+
+	return 0;
+}
+
+int DrmMock::closeGem(drm_gem_close* req)
+{
+	lock_guard<mutex> lock(sMutex);
+
+	auto it = sDumbs.find(req->handle);
+
+	if (it == sDumbs.end())
+	{
+		errno = ENOENT;
+		return -1;
+	}
+
+	sDumbs.erase(it);
+
+	return 0;
+}
+
+#endif
