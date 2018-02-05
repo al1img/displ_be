@@ -14,6 +14,7 @@ set(TEST_DRM_SOURCES
 	TestDisplay.cpp
 	TestConnector.cpp
 	TestDumb.cpp
+	TestFrameBuffer.cpp
 )
 
 ################################################################################

@@ -241,11 +241,15 @@ int drmModeAddFB2(int fd, uint32_t width, uint32_t height,
 				  uint32_t pitches[4], uint32_t offsets[4],
 				  uint32_t *buf_id, uint32_t flags)
 {
+	static uint32_t id = 1;
+
 	if (DrmMock::getErrorMode())
 	{
 		errno = EINVAL;
 		return -1;
 	}
+
+	*buf_id = id++;
 
 	return 0;
 }
