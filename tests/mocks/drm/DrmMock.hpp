@@ -70,7 +70,7 @@ public:
 
 	static void reset();
 
-	static void setErrorMode(bool errorMode) { sErrorMode = true; }
+	static void setErrorMode(bool errorMode) { sErrorMode = errorMode; }
 	static bool getErrorMode() { return sErrorMode; }
 	static void setDisableZCopy(bool disableZCopy) { sDisableZCopy = disableZCopy; }
 	static bool getDisableZCopy() { return sDisableZCopy; }

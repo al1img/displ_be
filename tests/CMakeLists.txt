@@ -6,9 +6,15 @@ project(UnitTests)
 
 include_directories(
 	.
-	../src/displayBackend
-	${DRM_INCLUDE_DIRS}
 )
+
+if(WITH_DRM OR WITH_WAYLAND)
+	include_directories(../src/displayBackend)
+endif()
+
+if(WITH_DRM)
+	include_directories(${DRM_INCLUDE_DIRS})
+endif()
 
 ################################################################################
 # Sources
@@ -25,6 +31,11 @@ if(WITH_DRM)
 	list(APPEND TEST_SOURCES $<TARGET_OBJECTS:test_drm>)
 endif()
 
+if(WITH_WAYLAND)
+	add_subdirectory(wayland)
+	list(APPEND TEST_SOURCES $<TARGET_OBJECTS:test_wayland>)
+endif()
+
 ################################################################################
 # Targets
 ################################################################################
@@ -36,6 +47,10 @@ if(WITH_DRM)
 	set_target_properties(unit_tests PROPERTIES LINK_FLAGS
 		"-Wl,--wrap=open -Wl,--wrap=close -Wl,--wrap=mmap -Wl,--wrap=munmap"
 	)
+endif()
+
+if(WITH_WAYLAND)
+	target_link_libraries(unit_tests display_wayland wayland_mock)
 endif()
 
 target_link_libraries(unit_tests xenbemock pthread)

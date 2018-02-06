@@ -1,23 +1,28 @@
+project(WaylandMock)
+
 ################################################################################
 # Includes
 ################################################################################
+
+include_directories( . )
+
+if(WITH_ZCOPY)
+	include_directories(${CMAKE_CURRENT_BINARY_DIR}/../../../src/displayBackend/wayland/protocols)
+endif()
 
 ################################################################################
 # Sources
 ################################################################################
 
-if(WITH_DRM)
-	add_subdirectory(drm)
-endif()
-
-if(WITH_WAYLAND)
-	add_subdirectory(wayland)
-endif()
+set(WAYLAND_MOCK_SOURCES
+	WaylandMock.cpp
+)
 
 ################################################################################
 # Targets
 ################################################################################
 
+add_library(wayland_mock ${WAYLAND_MOCK_SOURCES})
 
 ################################################################################
 # Libraries
