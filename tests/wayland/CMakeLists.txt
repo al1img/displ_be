@@ -20,6 +20,7 @@ endif()
 
 set(TEST_WAYLAND_SOURCES
 	TestDisplay.cpp
+	TestConnector.cpp
 )
 
 ################################################################################

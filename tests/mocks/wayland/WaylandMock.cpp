@@ -163,16 +163,6 @@ void wl_display::reset()
 	sErrorMode = false;
 }
 
-wl_display::wl_display()
-{
-
-}
-
-wl_display::~wl_display()
-{
-
-}
-
 wl_proxy* wl_display::marshalConstructor(uint32_t opcode,
 										 const wl_interface *interface,
 										 va_list args)
@@ -193,11 +183,6 @@ wl_proxy* wl_display::marshalConstructor(uint32_t opcode,
 	}
 
 	return nullptr;
-}
-
-int wl_display::addListener(void (**implementation)(void), void *data)
-{
-	return -1;
 }
 
 void wl_display::addEvent(Event event)
@@ -283,19 +268,6 @@ void wl_registry::reset()
 	sEnableSeat = false;
 }
 
-wl_registry::wl_registry(wl_display* display) :
-	mDisplay(display),
-	mData(nullptr),
-	mListener(nullptr)
-{
-
-}
-
-wl_registry::~wl_registry()
-{
-
-}
-
 wl_proxy* wl_registry::marshalConstructor(uint32_t opcode,
 										 const wl_interface *interface,
 										 va_list args)
@@ -306,12 +278,12 @@ wl_proxy* wl_registry::marshalConstructor(uint32_t opcode,
 
 			if (strcmp(interface->name, "wl_compositor") == 0)
 			{
-				return new wl_compositor();
+				return new wl_compositor(mDisplay);
 			}
 
 			if (strcmp(interface->name, "wl_shell") == 0)
 			{
-				return new wl_shell();
+				return new wl_shell(mDisplay);
 			}
 
 			if (strcmp(interface->name, "wl_shm") == 0)
@@ -333,7 +305,7 @@ wl_proxy* wl_registry::marshalConstructor(uint32_t opcode,
 
 			if (strcmp(interface->name, "ivi_application") == 0)
 			{
-				return new ivi_application();
+				return new ivi_application(mDisplay);
 			}
 
 #endif
@@ -420,21 +392,48 @@ int wl_registry::addListener(void (**implementation)(void), void *data)
 }
 
 /*******************************************************************************
- * wl_shm
+ * wl_compositor
  ******************************************************************************/
 
-wl_shm::wl_shm(wl_display* display) :
-	mDisplay(display),
-	mData(nullptr),
-	mListener(nullptr)
+wl_proxy* wl_compositor::marshalConstructor(uint32_t opcode,
+									 const wl_interface *interface,
+									 va_list args)
 {
+	switch(opcode)
+	{
+		case WL_COMPOSITOR_CREATE_SURFACE:
+			return new wl_surface(mDisplay);
 
+		default:
+			break;
+	}
+
+	return nullptr;
 }
 
-wl_shm::~wl_shm()
-{
+/*******************************************************************************
+ * wl_shell
+ ******************************************************************************/
 
+wl_proxy* wl_shell::marshalConstructor(uint32_t opcode,
+									   const wl_interface *interface,
+									   va_list args)
+{
+	switch(opcode)
+	{
+		case WL_SHELL_GET_SHELL_SURFACE:
+			return new wl_shell_surface(mDisplay);
+
+		default:
+			break;
+	}
+
+	return nullptr;
 }
+
+/*******************************************************************************
+ * wl_shm
+ ******************************************************************************/
 
 wl_proxy* wl_shm::marshalConstructor(uint32_t opcode,
 									 const wl_interface *interface,
@@ -472,17 +471,6 @@ int wl_shm::addListener(void (**implementation)(void), void *data)
  * wl_shm_pool
  ******************************************************************************/
 
-wl_shm_pool::wl_shm_pool(wl_display* display) :
-	mDisplay(display)
-{
-
-}
-
-wl_shm_pool::~wl_shm_pool()
-{
-
-}
-
 wl_proxy* wl_shm_pool::marshalConstructor(uint32_t opcode,
 										  const wl_interface *interface,
 										  va_list args)
@@ -503,19 +491,6 @@ wl_proxy* wl_shm_pool::marshalConstructor(uint32_t opcode,
  * wl_buffer
  ******************************************************************************/
 
-wl_buffer::wl_buffer(wl_display* display) :
-	mDisplay(display),
-	mData(nullptr),
-	mListener(nullptr)
-{
-
-}
-
-wl_buffer::~wl_buffer()
-{
-
-}
-
 int wl_buffer::addListener(void (**implementation)(void), void *data)
 {
 	mData = data;
@@ -533,19 +508,6 @@ uint32_t wl_seat::sCapabilities = 0;
 void wl_seat::reset()
 {
 	sCapabilities = 0;
-}
-
-wl_seat::wl_seat(wl_display* display) :
-	mDisplay(display),
-	mData(nullptr),
-	mListener(nullptr)
-{
-
-}
-
-wl_seat::~wl_seat()
-{
-
 }
 
 wl_proxy* wl_seat::marshalConstructor(uint32_t opcode,
@@ -588,24 +550,31 @@ int wl_seat::addListener(void (**implementation)(void), void *data)
 	return -1;
 }
 
+#ifdef WITH_IVI_EXTENSION
+
+wl_proxy* ivi_application::marshalConstructor(uint32_t opcode,
+									   const wl_interface *interface,
+									   va_list args)
+{
+	switch(opcode)
+	{
+		case IVI_APPLICATION_SURFACE_CREATE:
+			return new ivi_surface(mDisplay);
+
+		default:
+			break;
+	}
+
+	return nullptr;
+}
+
+#endif
+
 #ifdef WITH_ZCOPY
 
 /*******************************************************************************
  * wl_drm
  ******************************************************************************/
-
-wl_drm::wl_drm(wl_display* display) :
-	mDisplay(display),
-	mData(nullptr),
-	mListener(nullptr)
-{
-
-}
-
-wl_drm::~wl_drm()
-{
-
-}
 
 wl_proxy* wl_drm::marshalConstructor(uint32_t opcode,
 									 const wl_interface *interface,
@@ -645,19 +614,6 @@ int wl_drm::addListener(void (**implementation)(void), void *data)
 /*******************************************************************************
  * wl_kms
  ******************************************************************************/
-
-wl_kms::wl_kms(wl_display* display) :
-	mDisplay(display),
-	mData(nullptr),
-	mListener(nullptr)
-{
-
-}
-
-wl_kms::~wl_kms()
-{
-
-}
 
 wl_proxy* wl_kms::marshalConstructor(uint32_t opcode,
 									 const wl_interface *interface,
