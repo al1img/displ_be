@@ -29,6 +29,7 @@ Surface::Surface(wl_compositor* compositor) :
 	mBuffer(nullptr),
 	mTerminate(false),
 	mWaitForFrame(false),
+	mDefaultCallback(nullptr),
 	mLog("Surface")
 {
 	try
@@ -63,6 +64,11 @@ void Surface::draw(FrameBufferPtr frameBuffer,
 
 	if (mStoredCallback && !mWaitForFrame)
 	{
+		if (!mDefaultCallback)
+		{
+			mDefaultCallback = mStoredCallback;
+		}
+
 		if (!mWlFrameCallback)
 		{
 			mWlFrameCallback = wl_surface_frame(mWlSurface);
@@ -155,6 +161,14 @@ void Surface::sendCallback()
 	}
 }
 
+void Surface::sendDefaultCallback()
+{
+	if (mDefaultCallback)
+	{
+		mDefaultCallback();
+	}
+}
+
 void Surface::run()
 {
 	unique_lock<mutex> lock(mMutex);
@@ -163,7 +177,11 @@ void Surface::run()
 	{
 		if (!mStoredCallback)
 		{
-			mCondVar.wait(lock);
+			if (!mCondVar.wait_for(lock, milliseconds(cFrameTimeoutMs),
+							   [this] { return mStoredCallback != nullptr; }))
+			{
+				sendDefaultCallback();
+			}
 		}
 		else
 		{

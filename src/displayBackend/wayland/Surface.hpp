@@ -68,6 +68,7 @@ private:
 	WlBuffer* mBuffer;
 	bool mTerminate;
 	bool mWaitForFrame;
+	FrameCallback mDefaultCallback;
 	XenBackend::Log mLog;
 
 	std::mutex mMutex;
@@ -83,6 +84,7 @@ private:
 	void frameHandler();
 
 	void sendCallback();
+	void sendDefaultCallback();
 
 	void run();
 	void stop();
